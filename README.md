@@ -27,6 +27,17 @@ ChatPulse reads your local macOS Messages database (`~/Library/Messages/chat.db`
 
 Inspired by [imessage-analysis](https://github.com/yortos/imessage-analysis) by Yorgos Askalidis. Analysis concepts adapted with credit under CC BY-NC 4.0.
 
+## Security
+
+This is a public repository. Infrastructure-specific details (IP addresses, hostnames, domain names, VLAN IDs, credentials) are never committed. All such values are injected at runtime via Kubernetes Secrets and CI/CD secret stores.
+
+Automated scanning enforces this at three levels:
+- **Pre-commit hook** — blocks commits containing infrastructure patterns locally
+- **GitHub Actions** — scans changed files on every push and PR
+- **Claude Code hook** — scans files during AI-assisted development
+
+See `scripts/infra-scan.sh` for the pattern list. False positives can be excluded by adding files to the `SKIP_FILES` array.
+
 ## Deployment
 
 ChatPulse is designed to run as a containerised application on Kubernetes (k3s). See `k8s/` for deployment manifests.

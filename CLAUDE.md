@@ -43,14 +43,14 @@ AI-Generated: true
 
 ## Secrets & Configuration
 
-Infrastructure-specific details (IPs, hostnames, credentials, share paths) must **never** be committed to this repo. All such values are injected at runtime via:
+**Any local hostnames, network information (IP addresses, subnet CIDRs, VLAN IDs), credentials, share paths, or domain names whatsoever must NEVER be committed to this repo.** This is a public repository. All infrastructure-specific values are injected at runtime via:
 
 - **k8s Secrets** — `DATABASE_URL`, `NFS_SERVER`, `NFS_PATH`
 - **GitHub Secrets** — CI/CD registry credentials, deployment targets
 - **Gitea Secrets** — Same as above for Gitea Actions
 - **macOS Keychain** — SMB credentials for the LaunchAgent
 
-See PLAN.md § "Required Secrets" for the full list.
+A pre-commit hook and GitHub Actions workflow scan for accidental leaks (see `.github/workflows/infra-scan.yaml`). See PLAN.md § "Required Secrets" for the full list.
 
 ## Key Paths
 

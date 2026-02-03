@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Pre-commit hook: scan staged files for infrastructure leaks
+# Install: git config core.hooksPath .githooks
+
+exec "$(git rev-parse --show-toplevel)/scripts/infra-scan.sh"

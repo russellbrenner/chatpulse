@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/infra-scan.sh $CLAUDE_FILE_PATH",
+            "description": "Scan for infrastructure leaks before writing files"
+          }
+        ]
+      }
+    ]
+  }
+}
