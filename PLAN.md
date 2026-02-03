@@ -237,6 +237,47 @@ chatpulse/
 
 ---
 
+## Planned — Claude-Assisted PR Review
+
+> **Status:** Not yet implemented. Requires `ANTHROPIC_API_KEY` GitHub secret.
+
+Add a GitHub Actions workflow that uses `anthropics/claude-code-action` with the `prompt` parameter to review PRs for infrastructure leaks that the regex scanner might miss (e.g. network topology described in prose, unconventional IP formats, hardcoded paths that don't match known patterns).
+
+`@claude` mentions only work in issue/PR comments — they can't be triggered from hooks or arbitrary workflows. The `prompt` parameter bypasses this limitation and runs Claude autonomously.
+
+```yaml
+# .github/workflows/claude-review.yaml (draft)
+name: Claude PR Review
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this PR for:
+            1. Any hardcoded infrastructure details (IPs, hostnames, domain names,
+               VLAN IDs, credentials, share paths) — this is a public repo.
+            2. General code quality and security concerns.
+            Reference CLAUDE.md for project conventions.
+```
+
+**Considerations:**
+- Costs per-PR based on Anthropic API usage (token-based)
+- Regex scanner (`scripts/infra-scan.sh`) remains the primary gate — fast, free, deterministic
+- Claude review is a second-pass safety net for things regex can't catch
+- Could also be used for general code review on PRs from contributors
+
+---
+
 ## Decisions Log
 
 | # | Decision | Choice | Date | Rationale |
