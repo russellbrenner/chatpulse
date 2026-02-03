@@ -50,7 +50,7 @@ AI-Generated: true
 - **Gitea Secrets** — Same as above for Gitea Actions
 - **macOS Keychain** — SMB credentials for the LaunchAgent
 
-A pre-commit hook and GitHub Actions workflow scan for accidental leaks (see `.github/workflows/infra-scan.yaml`). See PLAN.md § "Required Secrets" for the full list.
+A pre-commit hook and GitHub Actions workflow scan for accidental leaks (see `.github/workflows/infra-scan.yaml`). See PLAN.md § 8 "Message Archival & Sync Pipeline" → "Required Secrets" table for the full list.
 
 ## Key Paths
 
