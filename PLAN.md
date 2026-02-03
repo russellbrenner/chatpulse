@@ -109,18 +109,86 @@ The [yortos/imessage-analysis](https://github.com/yortos/imessage-analysis) repo
 
 ---
 
-## 8. Project Structure (Proposed)
+## 8. Message Archival & Sync Pipeline
+
+The primary motivation: permanently archive all iMessages before setting macOS message expiry to 365 days. Tens of thousands of messages slow down all Apple devices; pruning them from iCloud while retaining a searchable archive in PostgreSQL solves this.
+
+### Architecture
+
+```
+Mac (launchd plist, daily)
+  │
+  │  sqlite3 ~/Library/Messages/chat.db
+  │    ".backup ~/mnt/smb/users/chatpulse/chat.db"
+  │
+  ▼
+fileshare1 (10.0.50.11)
+  SMB: //fileshare1/users/chatpulse/chat.db
+  NFS: exported to 10.0.4.0/23 (k3s VLAN)
+  │
+  ▼
+k3s CronJob (chatpulse-ingest)
+  │  Mount fileshare1 via NFS
+  │  Read chat.db
+  │  Extract messages WHERE ROWID > last_ingested
+  │  Insert into PostgreSQL (CT 112, 10.0.6.112)
+  │  Update watermark
+  │  Keep .db file as file-level backup
+  │
+  ▼
+PostgreSQL (CT 112 primary)
+  Permanent, queryable message archive
+  Serves ChatPulse web UI analytics
+```
+
+### Mac-side Sync Job
+
+- [ ] **A) launchd plist** — Native macOS scheduler. Runs `sqlite3 .backup` to SMB share. Simple, reliable, no dependencies.
+- [ ] **B) cron job** — Works but launchd is preferred on macOS (handles sleep/wake, power management).
+
+> **Safety note:** `sqlite3 .backup` uses SQLite's online backup API — safe to run while Messages.app is using the database. Do NOT use `cp` directly as this risks WAL corruption.
+
+### k3s Ingest Job
+
+- [ ] **A) CronJob (dedicated container)** — Lightweight image with `better-sqlite3` and `pg` client. Runs on schedule (e.g. daily, 1 hour after Mac sync). Mounts fileshare1 NFS.
+- [ ] **B) ChatPulse app endpoint** — The main ChatPulse web app exposes an `/api/ingest` endpoint. A k3s CronJob curls it to trigger processing. Simpler image but couples ingest to app availability.
+
+### Database Backend
+
+- [ ] **A) PostgreSQL (CT 112)** — Already running in the homelab on VLAN 6 (10.0.6.112). Streaming replication to CT 223 standby. Production-grade, supports full-text search.
+- [ ] **B) SQLite (in-app)** — Simpler, no external dependency, but less suitable for a web app with concurrent access and long-term archival.
+
+### Watermark / Deduplication Strategy
+
+- [ ] **A) ROWID tracking** — Store the highest ingested ROWID. Simple, works for append-only data. Misses edits/deletes (rare in Messages).
+- [ ] **B) Timestamp-based** — Use `message.date` column. Handles out-of-order delivery. Slightly more complex.
+- [ ] **C) Hash-based dedup** — Hash each message row, skip if already ingested. Most robust but slower.
+
+### File Retention on fileshare1
+
+- [ ] **A) Keep latest only** — Overwrite `chat.db` each sync. Minimal storage. File-level backup is just "latest snapshot".
+- [ ] **B) Rolling copies** — Keep timestamped copies (e.g. `chat-2026-02-03.db`). Uses more storage but provides point-in-time recovery. Prune after N days.
+- [ ] **C) Keep latest + weekly snapshots** — Overwrite daily, but keep one copy per week for 12 weeks. Balance of storage and recovery.
+
+### Future Enhancement: API Push
+
+> As a v2 improvement, the Mac-side job could also POST new messages directly to the ChatPulse API over HTTPS (via Traefik ingress), enabling near-real-time ingest without waiting for the CronJob schedule. The SMB copy would remain as a backup safety net.
+
+---
+
+## 9. Project Structure (Proposed)
 
 ```
 chatpulse/
 ├── CLAUDE.md
 ├── README.md
 ├── PLAN.md
-├── Dockerfile
+├── Dockerfile                  # Web app container
+├── Dockerfile.ingest           # Ingest job container
 ├── package.json
 ├── tsconfig.json
 ├── src/
-│   ├── server/           # Backend API
+│   ├── server/                 # Backend API
 │   │   ├── index.ts
 │   │   ├── routes/
 │   │   ├── services/
@@ -129,7 +197,10 @@ chatpulse/
 │   │   │   ├── analysis.ts     # Statistical analysis
 │   │   │   └── backup.ts       # Backup management
 │   │   └── types/
-│   └── client/           # Frontend
+│   ├── ingest/                 # Ingest CronJob entry point
+│   │   ├── index.ts            # Read chat.db → PostgreSQL
+│   │   └── watermark.ts        # Track last-ingested ROWID
+│   └── client/                 # Frontend
 │       ├── index.html
 │       ├── App.tsx
 │       ├── components/
@@ -139,10 +210,13 @@ chatpulse/
 │       └── lib/
 ├── k8s/
 │   ├── namespace.yaml
-│   ├── deployment.yaml
+│   ├── deployment.yaml         # Web app
 │   ├── service.yaml
 │   ├── ingress.yaml
-│   └── pvc.yaml
+│   ├── pvc.yaml
+│   └── cronjob-ingest.yaml    # Ingest CronJob (NFS mount + PostgreSQL)
+├── launchd/
+│   └── com.chatpulse.sync.plist  # macOS LaunchAgent for sqlite3 backup to SMB
 └── .gitea/
     └── workflows/
         └── build.yaml
