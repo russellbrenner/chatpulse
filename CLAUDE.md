@@ -11,7 +11,7 @@ ChatPulse is a web application for exploring, backing up, and visually analysing
 - **Database:** SQLite (read-only access to macOS `chat.db`)
 - **Deployment:** Docker container on k3s cluster (Traefik ingress, cert-manager TLS)
 - **CI/CD:** Gitea Actions (primary), GitHub Actions (secondary)
-- **Container Registry:** Gitea OCI (`git.itsa.house/rbrenner/chatpulse`)
+- **Container Registry:** Gitea OCI (self-hosted) or `ghcr.io` — configured via CI/CD secrets
 
 ## Development Guidelines
 
@@ -40,6 +40,17 @@ All commits by Claude must include:
 Co-Authored-By: Claude <noreply@anthropic.com>
 AI-Generated: true
 ```
+
+## Secrets & Configuration
+
+Infrastructure-specific details (IPs, hostnames, credentials, share paths) must **never** be committed to this repo. All such values are injected at runtime via:
+
+- **k8s Secrets** — `DATABASE_URL`, `NFS_SERVER`, `NFS_PATH`
+- **GitHub Secrets** — CI/CD registry credentials, deployment targets
+- **Gitea Secrets** — Same as above for Gitea Actions
+- **macOS Keychain** — SMB credentials for the LaunchAgent
+
+See PLAN.md § "Required Secrets" for the full list.
 
 ## Key Paths
 

@@ -96,7 +96,7 @@ The [yortos/imessage-analysis](https://github.com/yortos/imessage-analysis) repo
 - [ ] **B) Multi-stage Dockerfile** — Build stage (compile TypeScript, bundle frontend) + production stage (slim Node runtime). Smaller image.
 
 ### CI/CD
-- [ ] **A) Gitea Actions only** — Build and push to `git.itsa.house/rbrenner/chatpulse`. Matches existing homelab patterns.
+- [ ] **A) Gitea Actions only** — Build and push to self-hosted Gitea OCI registry. Matches existing homelab patterns.
 - [ ] **B) Gitea Actions + GitHub Actions** — Gitea for deployment builds, GitHub for CI checks on PRs.
 - [ ] **C) GitHub Actions only** — Push to `ghcr.io/russellbrenner/chatpulse`. Simpler if not self-hosting registry.
 
@@ -115,31 +115,44 @@ The primary motivation: permanently archive all iMessages before setting macOS m
 
 ### Architecture
 
+Infrastructure-specific details (IPs, share paths, hostnames) are kept out of this repo. Connection strings and mount paths are injected via environment variables and Kubernetes Secrets, populated from CI/CD secrets (GitHub Secrets / Gitea Secrets).
+
 ```
 Mac (launchd plist, daily)
   │
   │  sqlite3 ~/Library/Messages/chat.db
-  │    ".backup ~/mnt/smb/users/chatpulse/chat.db"
+  │    ".backup $CHATPULSE_SMB_MOUNT/chat.db"
   │
   ▼
-fileshare1 (10.0.50.11)
-  SMB: //fileshare1/users/chatpulse/chat.db
-  NFS: exported to 10.0.4.0/23 (k3s VLAN)
+NAS file server (SMB share)
+  SMB: //$NAS_HOST/$NAS_SHARE/chatpulse/chat.db
+  NFS: exported to k3s VLAN
   │
   ▼
 k3s CronJob (chatpulse-ingest)
-  │  Mount fileshare1 via NFS
+  │  Mount NAS via NFS (server + path from Secret)
   │  Read chat.db
   │  Extract messages WHERE ROWID > last_ingested
-  │  Insert into PostgreSQL (CT 112, 10.0.6.112)
+  │  Insert into PostgreSQL ($DATABASE_URL from Secret)
   │  Update watermark
   │  Keep .db file as file-level backup
   │
   ▼
-PostgreSQL (CT 112 primary)
+PostgreSQL
   Permanent, queryable message archive
   Serves ChatPulse web UI analytics
 ```
+
+### Required Secrets
+
+| Secret Key | Description | Used By |
+|------------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | Ingest job, web app |
+| `NFS_SERVER` | NAS IP address for NFS mount | k8s CronJob volume |
+| `NFS_PATH` | NFS export path | k8s CronJob volume |
+| `NAS_SMB_HOST` | NAS hostname/IP for SMB | macOS LaunchAgent |
+| `NAS_SMB_SHARE` | SMB share name | macOS LaunchAgent |
+| `NAS_SMB_USER` | SMB username | macOS LaunchAgent |
 
 ### Mac-side Sync Job
 
@@ -150,12 +163,12 @@ PostgreSQL (CT 112 primary)
 
 ### k3s Ingest Job
 
-- [ ] **A) CronJob (dedicated container)** — Lightweight image with `better-sqlite3` and `pg` client. Runs on schedule (e.g. daily, 1 hour after Mac sync). Mounts fileshare1 NFS.
+- [ ] **A) CronJob (dedicated container)** — Lightweight image with `better-sqlite3` and `pg` client. Runs on schedule (e.g. daily, 1 hour after Mac sync). Mounts NAS via NFS.
 - [ ] **B) ChatPulse app endpoint** — The main ChatPulse web app exposes an `/api/ingest` endpoint. A k3s CronJob curls it to trigger processing. Simpler image but couples ingest to app availability.
 
 ### Database Backend
 
-- [ ] **A) PostgreSQL (CT 112)** — Already running in the homelab on VLAN 6 (10.0.6.112). Streaming replication to CT 223 standby. Production-grade, supports full-text search.
+- [ ] **A) PostgreSQL** — Existing homelab instance with streaming replication. Production-grade, supports full-text search. Connection via `DATABASE_URL` secret.
 - [ ] **B) SQLite (in-app)** — Simpler, no external dependency, but less suitable for a web app with concurrent access and long-term archival.
 
 ### Watermark / Deduplication Strategy
@@ -164,7 +177,7 @@ PostgreSQL (CT 112 primary)
 - [ ] **B) Timestamp-based** — Use `message.date` column. Handles out-of-order delivery. Slightly more complex.
 - [ ] **C) Hash-based dedup** — Hash each message row, skip if already ingested. Most robust but slower.
 
-### File Retention on fileshare1
+### File Retention on NAS
 
 - [ ] **A) Keep latest only** — Overwrite `chat.db` each sync. Minimal storage. File-level backup is just "latest snapshot".
 - [ ] **B) Rolling copies** — Keep timestamped copies (e.g. `chat-2026-02-03.db`). Uses more storage but provides point-in-time recovery. Prune after N days.
