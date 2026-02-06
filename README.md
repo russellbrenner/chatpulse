@@ -2,45 +2,121 @@
 
 Explore, back up, and visually analyse your Apple Messages (iMessage) database through a web interface.
 
-## Features (Planned)
+## Features
 
 - **Message Explorer** — Browse conversations, search messages, view threads
-- **Backup Manager** — Create and manage snapshots of your Messages database
-- **Visual Analytics** — Charts and breakdowns of messaging patterns, frequency, contacts, reactions
-- **Thread Analysis** — Deep-dive into individual conversations with statistics and timeline views
+- **Visual Analytics** — Interactive Plotly.js charts: messaging patterns, frequency heatmaps, top contacts, response times, reaction breakdowns
+- **Message Archive** — Automatic backup and permanent archival of messages into PostgreSQL, independent of iCloud storage
+- **Upload Workflow** — Upload a chat.db file via the web interface for instant analysis
+
+## Architecture
+
+ChatPulse is a hybrid microservice with two backend components:
+
+| Service | Stack | Port | Role |
+|---------|-------|------|------|
+| **Web** | Node.js Fastify + React | 3000 | API gateway, frontend, file upload |
+| **Extraction** | Python FastAPI | 8001 | SQLite reader, analytics engine |
+
+The web service proxies analysis requests to the extraction service. A daily CronJob ingests new messages from chat.db into PostgreSQL for permanent archival.
+
+```
+macOS LaunchAgent (WatchPaths)
+  └─ sqlite3 .backup ─→ SMB share ─→ NFS mount
+                                        │
+k3s cluster:                            ▼
+  CronJob (daily) ─→ ingest ─→ PostgreSQL
+  Extraction (FastAPI) ←── proxy ←── Web (Fastify) ←── Browser
+```
 
 ## Quick Start
 
-> Project is in early development. See [PLAN.md](PLAN.md) for architectural decisions and roadmap.
+### Prerequisites
 
-## Requirements
-
-- macOS (for local Messages database access)
-- Full Disk Access permission for your terminal
+- macOS with **Full Disk Access** for your terminal (to read `~/Library/Messages/chat.db`)
+- Python 3.12+
 - Node.js 20+
 
-## How It Works
+### Run Locally
 
-ChatPulse reads your local macOS Messages database (`~/Library/Messages/chat.db`) in read-only mode. It extracts conversations, contacts, and message metadata to provide visual analytics and a browsable interface.
+```bash
+# 1. Start the extraction service
+cd services/extraction
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn chatpulse_extraction.main:app --port 8001
+
+# 2. Start the web service (in another terminal)
+cd services/web
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 (Vite dev server) — API requests proxy to the Fastify server on port 3000.
+
+### Test the API
+
+```bash
+# Health checks
+curl http://localhost:8001/health
+curl http://localhost:3000/api/health
+
+# Top contacts (direct)
+curl "http://localhost:8001/analysis/top-contacts?db_path=$HOME/Library/Messages/chat.db&limit=5"
+
+# Top contacts (via proxy)
+curl "http://localhost:3000/api/analysis/top-contacts?db_path=$HOME/Library/Messages/chat.db&limit=5"
+```
+
+### Run Tests
+
+```bash
+# Python tests (27 tests)
+cd services/extraction && source .venv/bin/activate && pytest
+
+# Node.js build check
+cd services/web && npm run build
+```
+
+## Deployment
+
+ChatPulse runs as containerised services on k3s. See `k8s/` for plain YAML manifests (no Helm/Kustomize).
+
+```bash
+# Build Docker images
+docker build -t chatpulse-extraction services/extraction
+docker build -t chatpulse-web services/web
+
+# Apply k8s manifests (after populating secrets and NFS PV)
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/
+```
+
+Infrastructure-specific values (database URL, NFS server, registry) are injected via k8s Secrets — never committed to the repo.
+
+## Database Schema
+
+PostgreSQL schema mirrors chat.db structure using `original_rowid` as primary keys (no SERIAL auto-increment). Migrations managed by [node-pg-migrate](https://github.com/salsita/node-pg-migrate).
+
+```bash
+cd migrations && npm install
+export DATABASE_URL="postgresql://user:password@host:5432/chatpulse"
+npm run migrate
+```
+
+## Security
+
+This is a public repository. Automated scanning prevents accidental commits of infrastructure details (IPs, hostnames, credentials) at three levels:
+
+1. **Pre-commit hook** — blocks locally before commit
+2. **GitHub Actions** — scans on every push and PR
+3. **Claude Code hook** — scans during AI-assisted development
+
+See `scripts/infra-scan.sh` for the pattern list.
 
 ## Attribution
 
 Inspired by [imessage-analysis](https://github.com/yortos/imessage-analysis) by Yorgos Askalidis. Analysis concepts adapted with credit under CC BY-NC 4.0.
-
-## Security
-
-This is a public repository. Infrastructure-specific details (IP addresses, hostnames, domain names, VLAN IDs, credentials) are never committed. All such values are injected at runtime via Kubernetes Secrets and CI/CD secret stores.
-
-Automated scanning enforces this at three levels:
-- **Pre-commit hook** — blocks commits containing infrastructure patterns locally
-- **GitHub Actions** — scans changed files on every push and PR
-- **Claude Code hook** — scans files during AI-assisted development
-
-See `scripts/infra-scan.sh` for the pattern list. False positives can be excluded by adding files to the `SKIP_FILES` array.
-
-## Deployment
-
-ChatPulse is designed to run as a containerised application on Kubernetes (k3s). See `k8s/` for deployment manifests.
 
 ## Licence
 
