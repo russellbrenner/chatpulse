@@ -215,10 +215,10 @@ export async function ingestFromChatDb(
       let handlesUpserted = 0;
       for (const handle of handles) {
         await client.query(
-          `INSERT INTO handles (rowid, handle_id, service, uncanonicalized_id)
+          `INSERT INTO handles (original_rowid, identifier, service, uncanonicalized_id)
            VALUES ($1, $2, $3, $4)
-           ON CONFLICT (rowid)
-           DO UPDATE SET handle_id          = EXCLUDED.handle_id,
+           ON CONFLICT (original_rowid)
+           DO UPDATE SET identifier         = EXCLUDED.identifier,
                          service            = EXCLUDED.service,
                          uncanonicalized_id = EXCLUDED.uncanonicalized_id`,
           [handle.ROWID, handle.id, handle.service, handle.uncanonicalized_id],
@@ -230,10 +230,10 @@ export async function ingestFromChatDb(
       let chatsUpserted = 0;
       for (const chat of chats) {
         await client.query(
-          `INSERT INTO chats (rowid, guid, chat_identifier, display_name,
+          `INSERT INTO chats (original_rowid, guid, chat_identifier, display_name,
                               service_name, group_id)
            VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (rowid)
+           ON CONFLICT (original_rowid)
            DO UPDATE SET guid            = EXCLUDED.guid,
                          chat_identifier = EXCLUDED.chat_identifier,
                          display_name    = EXCLUDED.display_name,
@@ -255,11 +255,11 @@ export async function ingestFromChatDb(
         const deliveredAt = msg.date_delivered ? appleToDate(msg.date_delivered) : null;
 
         await client.query(
-          `INSERT INTO messages (rowid, guid, text, handle_id, date, date_read,
+          `INSERT INTO messages (original_rowid, guid, text, handle_id, date, date_read,
                                  date_delivered, is_from_me, has_attachments,
                                  associated_message_type, service)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-           ON CONFLICT (rowid) DO NOTHING`,
+           ON CONFLICT (original_rowid) DO NOTHING`,
           [
             msg.ROWID, msg.guid, msg.text, msg.handle_id,
             sentAt, readAt, deliveredAt,

@@ -30,15 +30,16 @@ spec:
             - name: ingest
               # Uses the web image which contains the compiled ingest script
               image: REGISTRY/chatpulse-web:latest
-              command: ["node", "dist/server/services/ingest.js"]
+              imagePullPolicy: IfNotPresent
+              command: ["node", "dist/ingest.js"]
               env:
+                - name: CHAT_DB_PATH
+                  value: "/mnt/chatpulse/chat.db"
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
                       name: chatpulse-secrets
                       key: DATABASE_URL
-                - name: NFS_MOUNT_PATH
-                  value: "/mnt/chatpulse"
               volumeMounts:
                 - name: chatpulse-nfs
                   mountPath: /mnt/chatpulse
@@ -52,13 +53,6 @@ spec:
                   cpu: "500m"
           volumes:
             - name: chatpulse-nfs
-              nfs:
-                # NFS server and path are populated from k8s Secret at apply time.
-                # Use a script or sealed-secrets controller to template these values.
-                # Alternatively, create a PV/PVC pair with the NFS details and
-                # reference the PVC here instead.
-                #
-                # Placeholder values — replace before applying:
-                server: "NFS_SERVER_FROM_SECRET"
-                path: "NFS_PATH_FROM_SECRET"
+              persistentVolumeClaim:
+                claimName: chatpulse-nfs
                 readOnly: true

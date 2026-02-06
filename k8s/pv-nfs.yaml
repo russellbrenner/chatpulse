@@ -1,0 +1,44 @@
+# PersistentVolume for the NFS share containing chat.db backups.
+# The NFS server and path are infrastructure-specific — populate
+# them before applying. These values should NOT be committed to
+# the public repo; use a local overlay or sealed-secrets.
+#
+# Example:
+#   server: nfs.example.com
+#   path: /data/chatpulse
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: chatpulse-nfs-pv
+  labels:
+    app.kubernetes.io/name: chatpulse-nfs
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    # REQUIRED: Replace with actual NFS server IP/hostname before applying
+    server: "REPLACE_ME"
+    # REQUIRED: Replace with actual NFS export path before applying
+    path: "REPLACE_ME"
+    readOnly: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chatpulse-nfs
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse-nfs
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: chatpulse-nfs-pv

@@ -20,16 +20,22 @@ export default async function messageRoutes(fastify: FastifyInstance): Promise<v
   });
 
   /** GET /api/contacts — List all contacts/handles. */
-  fastify.get('/api/contacts', async (request, reply) => {
+  fastify.get<{
+    Querystring: Record<string, string>;
+  }>('/api/contacts', async (request, reply) => {
     const result = await proxyToExtraction('/extract/contacts', {
+      query: request.query as Record<string, string>,
       logger: request.log,
     });
     return reply.send(result);
   });
 
   /** GET /api/chats — List all chat threads. */
-  fastify.get('/api/chats', async (request, reply) => {
+  fastify.get<{
+    Querystring: Record<string, string>;
+  }>('/api/chats', async (request, reply) => {
     const result = await proxyToExtraction('/extract/chats', {
+      query: request.query as Record<string, string>,
       logger: request.log,
     });
     return reply.send(result);

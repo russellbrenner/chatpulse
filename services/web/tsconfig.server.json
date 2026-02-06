@@ -1,9 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist/server",
-    "rootDir": "src/server",
+    "outDir": "dist",
+    "rootDir": "src",
     "jsx": "react-jsx"
   },
-  "include": ["src/server"]
+  "include": ["src/server", "src/ingest.ts"]
 }

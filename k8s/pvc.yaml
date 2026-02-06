@@ -6,10 +6,12 @@ metadata:
   name: chatpulse-uploads
   namespace: chatpulse
   labels:
+    app.kubernetes.io/name: chatpulse-uploads
     app.kubernetes.io/part-of: chatpulse
 spec:
   accessModes:
     - ReadWriteMany
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi
