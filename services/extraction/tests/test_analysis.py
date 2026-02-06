@@ -112,8 +112,14 @@ class TestReactionSummary:
         results = analysis.reaction_summary(sample_db)
         for r in results:
             assert "label" in r
-            assert r["label"] in ("Loved", "Liked", "Disliked", "Laughed",
-                                   "Emphasised", "Questioned")
+            assert r["label"] in (
+                "Loved",
+                "Liked",
+                "Disliked",
+                "Laughed",
+                "Emphasised",
+                "Questioned",
+            )
 
 
 # ---------------------------------------------------------------------------

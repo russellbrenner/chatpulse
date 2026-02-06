@@ -67,9 +67,7 @@ def _populate(conn: sqlite3.Connection) -> None:
     # Handles
     conn.execute("INSERT INTO handle (id, service) VALUES ('+61400111222', 'iMessage')")
     conn.execute("INSERT INTO handle (id, service) VALUES ('+61400333444', 'iMessage')")
-    conn.execute(
-        "INSERT INTO handle (id, service) VALUES ('mate@example.com', 'iMessage')"
-    )
+    conn.execute("INSERT INTO handle (id, service) VALUES ('mate@example.com', 'iMessage')")
 
     # Chats
     conn.execute(
@@ -113,9 +111,16 @@ def _populate(conn: sqlite3.Connection) -> None:
     # chat_message_join -- first 5 messages in chat 1, next 3 in chat 2,
     # last 2 in chat 1 again.
     chat_joins = [
-        (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
-        (2, 6), (2, 7), (2, 8),
-        (1, 9), (1, 10),
+        (1, 1),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 6),
+        (2, 7),
+        (2, 8),
+        (1, 9),
+        (1, 10),
     ]
     conn.executemany(
         "INSERT INTO chat_message_join (chat_id, message_id) VALUES (?, ?)",
