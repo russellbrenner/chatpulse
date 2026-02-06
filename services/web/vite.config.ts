@@ -8,6 +8,13 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'dist/client'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          plotly: ['plotly.js', 'react-plotly.js'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

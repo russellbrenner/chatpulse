@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Explorer } from './components/Explorer/Explorer';
-import { Analytics } from './components/Analytics/Analytics';
 import { Backup } from './components/Backup/Backup';
+
+const Analytics = lazy(() =>
+  import('./components/Analytics/Analytics').then((m) => ({ default: m.Analytics })),
+);
 
 type View = 'explorer' | 'analytics' | 'backup';
 
@@ -52,7 +55,11 @@ export function App() {
         ) : (
           <>
             {activeView === 'explorer' && <Explorer />}
-            {activeView === 'analytics' && <Analytics />}
+            {activeView === 'analytics' && (
+              <Suspense fallback={<div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading analytics…</div>}>
+                <Analytics />
+              </Suspense>
+            )}
             {activeView === 'backup' && (
               <Backup onUploadComplete={handleUploadComplete} />
             )}

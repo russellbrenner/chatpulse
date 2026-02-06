@@ -32,10 +32,10 @@ await fastify.register(fastifyCors, {
     : true,
 });
 
-// Multipart file uploads (10 MB limit for chat.db)
+// Multipart file uploads (1 GB limit — real chat.db files can be 600+ MB)
 await fastify.register(fastifyMultipart, {
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
+    fileSize: 1_073_741_824, // 1 GB
   },
 });
 
