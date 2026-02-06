@@ -92,7 +92,7 @@ The [yortos/imessage-analysis](https://github.com/yortos/imessage-analysis) repo
 - [ ] **B) Incremental export** — Track last-seen message ROWID, export only new messages to JSON/CSV. Smaller, but requires state tracking.
 - [x] **C) Both** — Full snapshots on demand, incremental exports on schedule.
 
-> **Current setup:** Hourly clone job via Carbon Copy Cloner (CCC) copies chat.db to SMB share at `$CHATPULSE_SMB_MOUNT/chat.db`.
+> **Implementation:** LaunchAgent plist runs `sqlite3 .backup` to SMB share, triggered by `WatchPaths` on `~/Library/Messages/chat.db` with `ThrottleInterval` to avoid excessive runs. See `launchd/com.chatpulse.sync.plist`.
 
 ---
 
@@ -122,14 +122,14 @@ The [yortos/imessage-analysis](https://github.com/yortos/imessage-analysis) repo
 
 The primary motivation: permanently archive all iMessages before setting macOS message expiry to 365 days. Tens of thousands of messages slow down all Apple devices; pruning them from iCloud while retaining a searchable archive in PostgreSQL solves this.
 
-> **Current setup:** CCC hourly clone job already copies chat.db to the SMB share. The architecture below may evolve from this starting point.
+> **Implementation:** LaunchAgent watches `~/Library/Messages/chat.db` for changes and runs `sqlite3 .backup` to the SMB share. Throttled to avoid excessive runs during active conversations.
 
 ### Architecture
 
 Infrastructure-specific details (IPs, share paths, hostnames) are kept out of this repo. Connection strings and mount paths are injected via environment variables and Kubernetes Secrets, populated from CI/CD secrets (GitHub Secrets / Gitea Secrets).
 
 ```
-Mac (launchd plist, daily)
+Mac (launchd plist, WatchPaths + ThrottleInterval)
   │
   │  sqlite3 ~/Library/Messages/chat.db
   │    ".backup $CHATPULSE_SMB_MOUNT/chat.db"
@@ -167,7 +167,7 @@ PostgreSQL
 
 ### Mac-side Sync Job
 
-- [x] **A) launchd plist** — Native macOS scheduler. Runs `sqlite3 .backup` to SMB share. Simple, reliable, no dependencies.
+- [x] **A) launchd plist** — Native macOS scheduler. Runs `sqlite3 .backup` to SMB share. Uses `WatchPaths` on chat.db with `ThrottleInterval`. Checks SMB mount is available before running (graceful skip if off-network).
 - [ ] **B) cron job** — Works but launchd is preferred on macOS (handles sleep/wake, power management).
 
 > **Safety note:** `sqlite3 .backup` uses SQLite's online backup API — safe to run while Messages.app is using the database. Do NOT use `cp` directly as this risks WAL corruption.
@@ -380,10 +380,10 @@ jobs:
 | 4 | Visualisation | E) Plotly.js | 2026-02-06 | Interactive charts out of the box, good for dashboards |
 | 5 | Analysis features | All phases (1–3) | 2026-02-06 | Full feature set planned from the start |
 | 6 | Python code reuse | D) Don't reuse | 2026-02-06 | Write from scratch; attribute yortos if used as reference |
-| 7 | Backup strategy | C) Both (snapshots + incremental) | 2026-02-06 | CCC hourly clone already running; incremental for efficiency |
+| 7 | Backup strategy | C) Both (snapshots + incremental) | 2026-02-06 | LaunchAgent sqlite3 .backup on file change; incremental for efficiency |
 | 8 | Container build | B) Multi-stage Dockerfile | 2026-02-06 | Smaller production image with slim Node runtime |
 | 9 | CI/CD | B) Gitea Actions + GitHub Actions | 2026-02-06 | Gitea for deployment, GitHub for PR checks |
-| 10 | Mac-side sync | A) launchd plist | 2026-02-06 | Native macOS, handles sleep/wake; CCC already running |
+| 10 | Mac-side sync | A) launchd plist | 2026-02-06 | WatchPaths on chat.db + ThrottleInterval; sqlite3 .backup to SMB |
 | 11 | k3s ingest job | A) CronJob (dedicated container) | 2026-02-06 | Lightweight, NFS via existing storage pool on node |
 | 12 | Database backend | A) PostgreSQL | 2026-02-06 | Existing instance with replication, full-text search |
 | 13 | Watermark strategy | B) Timestamp-based | 2026-02-06 | Handles out-of-order delivery |
