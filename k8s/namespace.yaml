@@ -1,0 +1,7 @@
+# ChatPulse namespace — isolates all project resources
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chatpulse
+  labels:
+    app.kubernetes.io/part-of: chatpulse

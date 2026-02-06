@@ -1,0 +1,72 @@
+# ChatPulse web service — Fastify API gateway + React frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatpulse-web
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chatpulse-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chatpulse-web
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: chatpulse
+    spec:
+      containers:
+        - name: web
+          # Replace REGISTRY with your container registry (e.g. ghcr.io/user or gitea.example.com/user)
+          image: REGISTRY/chatpulse-web:latest
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: EXTRACTION_SERVICE_URL
+              value: "http://chatpulse-extraction:8001"
+            - name: UPLOAD_DIR
+              value: "/app/uploads"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chatpulse-secrets
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: chatpulse-uploads

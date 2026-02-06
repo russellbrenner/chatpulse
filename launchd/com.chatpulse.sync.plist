@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ChatPulse macOS LaunchAgent
+  Watches ~/Library/Messages/chat.db for changes and runs sqlite3 .backup
+  to the configured SMB mount path. Throttled to at most once per hour.
+
+  Install:
+    cp launchd/com.chatpulse.sync.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.chatpulse.sync.plist
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.chatpulse.sync.plist
+    rm ~/Library/LaunchAgents/com.chatpulse.sync.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.chatpulse.sync</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>CHATPULSE_REPO_PATH/launchd/chatpulse-sync.sh</string>
+  </array>
+
+  <key>WatchPaths</key>
+  <array>
+    <string>HOME_DIR/Library/Messages/chat.db</string>
+  </array>
+
+  <key>ThrottleInterval</key>
+  <integer>3600</integer>
+
+  <key>StandardOutPath</key>
+  <string>HOME_DIR/Library/Logs/chatpulse-sync.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>HOME_DIR/Library/Logs/chatpulse-sync.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>

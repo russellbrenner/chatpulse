@@ -1,0 +1,19 @@
+# ChatPulse web service — exposes Fastify on port 80 within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatpulse-web
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chatpulse-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP

@@ -1,0 +1,7 @@
+{
+  "defaultEnv": "DATABASE_URL",
+  "DATABASE_URL": {
+    "ENV": "DATABASE_URL",
+    "default": "postgresql://localhost:5432/chatpulse"
+  }
+}

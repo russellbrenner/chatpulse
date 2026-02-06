@@ -1,0 +1,68 @@
+name: Build & Push Images
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-web:
+    name: Build web image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "sha_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "registry=${{ secrets.REGISTRY_URL }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: services/web
+          file: services/web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.registry }}/chatpulse-web:latest
+            ${{ steps.meta.outputs.registry }}/chatpulse-web:${{ steps.meta.outputs.sha_tag }}
+
+  build-extraction:
+    name: Build extraction image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "sha_tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "registry=${{ secrets.REGISTRY_URL }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push extraction image
+        uses: docker/build-push-action@v6
+        with:
+          context: services/extraction
+          file: services/extraction/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.registry }}/chatpulse-extraction:latest
+            ${{ steps.meta.outputs.registry }}/chatpulse-extraction:${{ steps.meta.outputs.sha_tag }}

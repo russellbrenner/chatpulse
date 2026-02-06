@@ -1,0 +1,15 @@
+# Shared PersistentVolumeClaim for uploaded chat.db files and file backups.
+# ReadWriteMany allows both web and extraction pods to access simultaneously.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chatpulse-uploads
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi

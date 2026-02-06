@@ -1,0 +1,31 @@
+# ChatPulse Traefik ingress — TLS via cert-manager
+# Replace chatpulse.example.com with your actual domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chatpulse
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse
+    app.kubernetes.io/part-of: chatpulse
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - chatpulse.example.com
+      secretName: chatpulse-tls
+  rules:
+    - host: chatpulse.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chatpulse-web
+                port:
+                  name: http

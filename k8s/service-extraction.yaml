@@ -1,0 +1,19 @@
+# ChatPulse extraction service — internal cluster service for inter-service communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatpulse-extraction
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse-extraction
+    app.kubernetes.io/component: extraction
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chatpulse-extraction
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+      protocol: TCP

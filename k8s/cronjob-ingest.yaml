@@ -1,0 +1,64 @@
+# ChatPulse ingest CronJob — reads chat.db from NFS and inserts new
+# messages into PostgreSQL using timestamp-based watermarking.
+# Runs daily at 02:00 UTC.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chatpulse-ingest
+  namespace: chatpulse
+  labels:
+    app.kubernetes.io/name: chatpulse-ingest
+    app.kubernetes.io/component: ingest
+    app.kubernetes.io/part-of: chatpulse
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: chatpulse-ingest
+            app.kubernetes.io/component: ingest
+            app.kubernetes.io/part-of: chatpulse
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ingest
+              # Uses the web image which contains the compiled ingest script
+              image: REGISTRY/chatpulse-web:latest
+              command: ["node", "dist/server/services/ingest.js"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: chatpulse-secrets
+                      key: DATABASE_URL
+                - name: NFS_MOUNT_PATH
+                  value: "/mnt/chatpulse"
+              volumeMounts:
+                - name: chatpulse-nfs
+                  mountPath: /mnt/chatpulse
+                  readOnly: true
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+          volumes:
+            - name: chatpulse-nfs
+              nfs:
+                # NFS server and path are populated from k8s Secret at apply time.
+                # Use a script or sealed-secrets controller to template these values.
+                # Alternatively, create a PV/PVC pair with the NFS details and
+                # reference the PVC here instead.
+                #
+                # Placeholder values — replace before applying:
+                server: "NFS_SERVER_FROM_SECRET"
+                path: "NFS_PATH_FROM_SECRET"
+                readOnly: true

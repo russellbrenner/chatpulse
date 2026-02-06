@@ -1,0 +1,14 @@
+{
+  "name": "chatpulse-migrations",
+  "version": "1.0.0",
+  "description": "PostgreSQL database migrations for ChatPulse",
+  "private": true,
+  "scripts": {
+    "migrate": "node-pg-migrate up --migration-file-language sql --migrations-dir .",
+    "migrate:down": "node-pg-migrate down --migration-file-language sql --migrations-dir .",
+    "migrate:create": "node-pg-migrate create --migration-file-language sql --migrations-dir ."
+  },
+  "dependencies": {
+    "node-pg-migrate": "^7.3.0"
+  }
+}
