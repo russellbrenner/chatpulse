@@ -12,6 +12,9 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
+    # Allow uploads up to 1 GB — chat.db files are typically 500–700 MB.
+    # Without this, Traefik's default body size limit rejects large uploads.
+    traefik.ingress.kubernetes.io/buffering-maxrequestbodybytes: "1073741824"
 spec:
   ingressClassName: traefik
   tls:

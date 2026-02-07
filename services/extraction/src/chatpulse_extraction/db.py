@@ -12,12 +12,71 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+import re
+
+# Pattern that precedes the text string inside a typedstream attributedBody blob.
+# The byte after NSString\x01 varies (seen \x94 and \x95) so we match any byte there.
+_ATTRIBUTED_BODY_PATTERN = re.compile(rb"NSString\x01.\x84\x01\+", re.DOTALL)
+
 # Apple Core Data epoch offset: seconds between 1970-01-01 and 2001-01-01.
 APPLE_EPOCH_OFFSET = 978307200
 
 # Apple stores message.date as nanoseconds since 2001-01-01 (post-High Sierra).
 # To convert to Unix seconds: (date / 1_000_000_000) + APPLE_EPOCH_OFFSET
 DATE_CONVERSION_EXPR = f"(message.date / 1000000000) + {APPLE_EPOCH_OFFSET}"
+
+
+def _extract_text_from_attributed_body(blob: bytes | None) -> str | None:
+    """Decode the text content from an Apple typedstream attributedBody blob.
+
+    Modern macOS Messages stores text in ``attributedBody`` (an
+    NSKeyedArchiver/typedstream blob) instead of the ``text`` column.
+    The plain-text string is embedded after an ``NSString`` marker with
+    a length prefix.
+
+    Returns *None* if the blob is empty or unparseable.
+    """
+    if not blob:
+        return None
+
+    match = _ATTRIBUTED_BODY_PATTERN.search(blob)
+    if match is None:
+        return None
+
+    # Position right after the matched pattern
+    pos = match.end()
+    if pos >= len(blob):
+        return None
+
+    # Read the length.  Typedstream uses:
+    #   byte < 0x80  → length is that byte
+    #   byte == 0x81 → next 2 bytes (big-endian) are the length
+    #   byte == 0x82 → next 4 bytes (big-endian) are the length
+    length_byte = blob[pos]
+    pos += 1
+
+    if length_byte < 0x80:
+        length = length_byte
+    elif length_byte == 0x81:
+        if pos + 2 > len(blob):
+            return None
+        length = int.from_bytes(blob[pos : pos + 2], "big")
+        pos += 2
+    elif length_byte == 0x82:
+        if pos + 4 > len(blob):
+            return None
+        length = int.from_bytes(blob[pos : pos + 4], "big")
+        pos += 4
+    else:
+        return None
+
+    if pos + length > len(blob):
+        return None
+
+    try:
+        return blob[pos : pos + length].decode("utf-8", errors="replace")
+    except Exception:
+        return None
 
 
 class ChatDB:
@@ -69,6 +128,7 @@ class ChatDB:
                 message.ROWID   AS rowid,
                 message.guid,
                 message.text,
+                message.attributedBody,
                 message.handle_id,
                 {DATE_CONVERSION_EXPR} AS date_unix,
                 message.is_from_me,
@@ -95,7 +155,7 @@ class ChatDB:
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
 
-        return [dict(row) for row in rows]
+        return [self._resolve_text(dict(row)) for row in rows]
 
     def get_handles(self) -> list[dict[str, Any]]:
         """Return all contact handles."""
@@ -141,6 +201,7 @@ class ChatDB:
                 message.ROWID   AS rowid,
                 message.guid,
                 message.text,
+                message.attributedBody,
                 message.handle_id,
                 {DATE_CONVERSION_EXPR} AS date_unix,
                 message.is_from_me,
@@ -154,7 +215,15 @@ class ChatDB:
         """
         with self._connect() as conn:
             rows = conn.execute(sql, [chat_id]).fetchall()
-        return [dict(row) for row in rows]
+        return [self._resolve_text(dict(row)) for row in rows]
+
+    @staticmethod
+    def _resolve_text(row: dict[str, Any]) -> dict[str, Any]:
+        """Fill in ``text`` from ``attributedBody`` if needed, then drop the blob."""
+        if row.get("text") is None and row.get("attributedBody") is not None:
+            row["text"] = _extract_text_from_attributed_body(row["attributedBody"])
+        row.pop("attributedBody", None)
+        return row
 
     # ------------------------------------------------------------------
     # Raw query helper (used by analysis functions)

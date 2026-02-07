@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 
 interface BackupProps {
-  onUploadComplete?: () => void;
+  onUploadComplete?: (dbPath: string) => void;
 }
 
 interface UploadResult {
@@ -106,7 +106,7 @@ export function Backup({ onUploadComplete }: BackupProps) {
         try {
           const response = JSON.parse(xhr.responseText) as UploadResult;
           setResult(response);
-          onUploadComplete?.();
+          onUploadComplete?.(response.path);
         } catch {
           setError('Received an invalid response from the server.');
         }

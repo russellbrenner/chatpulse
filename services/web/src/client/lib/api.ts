@@ -117,13 +117,17 @@ export async function fetchMessages<T = unknown>(
 }
 
 /** Fetch all contacts/handles. */
-export async function fetchContacts<T = unknown>(): Promise<T> {
-  return apiFetch<T>('/contacts');
+export async function fetchContacts<T = unknown>(
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
+  return apiFetch<T>(`/contacts${buildQuery(params)}`);
 }
 
 /** Fetch all chat threads. */
-export async function fetchChats<T = unknown>(): Promise<T> {
-  return apiFetch<T>('/chats');
+export async function fetchChats<T = unknown>(
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
+  return apiFetch<T>(`/chats${buildQuery(params)}`);
 }
 
 /** Fetch messages for a specific chat thread. */

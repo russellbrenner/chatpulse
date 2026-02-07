@@ -19,10 +19,10 @@ type View = 'explorer' | 'analytics' | 'backup';
  */
 export function App() {
   const [activeView, setActiveView] = useState<View>('explorer');
-  const [databaseLoaded, setDatabaseLoaded] = useState(false);
+  const [dbPath, setDbPath] = useState<string | null>(null);
 
-  const handleUploadComplete = () => {
-    setDatabaseLoaded(true);
+  const handleUploadComplete = (path: string) => {
+    setDbPath(path);
     setActiveView('explorer');
   };
 
@@ -50,11 +50,11 @@ export function App() {
 
       {/* Main content area */}
       <main style={{ flex: 1, padding: '1.5rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-        {!databaseLoaded && activeView !== 'backup' ? (
+        {!dbPath && activeView !== 'backup' ? (
           <WelcomePrompt onNavigateToBackup={() => setActiveView('backup')} />
         ) : (
           <>
-            {activeView === 'explorer' && <Explorer />}
+            {activeView === 'explorer' && <Explorer dbPath={dbPath!} />}
             {activeView === 'analytics' && (
               <Suspense fallback={<div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading analytics…</div>}>
                 <Analytics />

@@ -101,7 +101,11 @@ function chatLabel(chat: ChatRow): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function Explorer() {
+interface ExplorerProps {
+  dbPath: string;
+}
+
+export function Explorer({ dbPath }: ExplorerProps) {
   // Data state
   const [chats, setChats] = useState<ChatRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -129,8 +133,8 @@ export function Explorer() {
       setError(null);
       try {
         const [chatData, contactData] = await Promise.all([
-          fetchChats<ChatListResponse>(),
-          fetchContacts<HandleListResponse>(),
+          fetchChats<ChatListResponse>({ db_path: dbPath }),
+          fetchContacts<HandleListResponse>({ db_path: dbPath }),
         ]);
 
         if (cancelled) return;
@@ -156,7 +160,7 @@ export function Explorer() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dbPath]);
 
   // -----------------------------------------------------------
   // Fetch messages when a chat is selected
@@ -174,7 +178,7 @@ export function Explorer() {
       setLoadingMessages(true);
       setError(null);
       try {
-        const data = await fetchChatMessages<MessageListResponse>(selectedChatId!);
+        const data = await fetchChatMessages<MessageListResponse>(selectedChatId!, { db_path: dbPath });
         if (!cancelled) {
           setMessages(data.messages);
         }

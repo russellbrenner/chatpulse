@@ -1,5 +1,8 @@
 # Shared PersistentVolumeClaim for uploaded chat.db files and file backups.
-# ReadWriteMany allows both web and extraction pods to access simultaneously.
+# Uses ReadWriteOnce because the default local-path provisioner does not
+# support ReadWriteMany. Both web and extraction pods must schedule on
+# the same node (the node where the PVC is first bound). If you use a
+# network-backed StorageClass (NFS, Longhorn, etc.) you can switch to RWX.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,7 +13,7 @@ metadata:
     app.kubernetes.io/part-of: chatpulse
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   storageClassName: local-path
   resources:
     requests:
